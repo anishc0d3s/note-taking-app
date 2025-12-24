@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .note-form {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .note-form h2 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        .notes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .note-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .note-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .note-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 10px;
+        }
+
+        .note-title {
+            font-size: 1.5em;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .note-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-edit, .btn-delete, .btn-save, .btn-cancel {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-edit {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: #45a049;
+        }
+
+        .btn-delete {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #da190b;
+        }
+
+        .btn-save {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-cancel {
+            background: #9e9e9e;
+            color: white;
+        }
+
+        .note-content {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+        }
+
+        .note-timestamp {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: white;
+            font-size: 1.2em;
+            padding: 50px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+        }
+
+        .edit-mode input, .edit-mode textarea {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📝 My Notes</h1>
+        
+        <div class="note-form">
+            <h2>Create New Note</h2>
+            <input type="text" id="newTitle" placeholder="Note title...">
+            <textarea id="newContent" placeholder="Note content..."></textarea>
+            <button onclick="createNote()">Add Note</button>
+        </div>
+
+        <div id="notesList" class="notes-list"></div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin + '/api/notes';
+
+        async function loadNotes() {
+            try {
+                const response = await fetch(API_URL);
+                const notes = await response.json();
+                displayNotes(notes);
+            } catch (error) {
+                console.error('Error loading notes:', error);
+            }
+        }
+
+        function displayNotes(notes) {
+            const notesList = document.getElementById('notesList');
+            
+            if (notes.length === 0) {
+                notesList.innerHTML = '<div class="empty-state">No notes yet. Create your first note above!</div>';
+                return;
+            }
+
+            notesList.innerHTML = notes.map(note => `
+                <div class="note-card" id="note-${note.id}">
+                    <div class="note-header">
+                        <div class="note-title">${escapeHtml(note.title)}</div>
+                        <div class="note-actions">
+                            <button class="btn-edit" onclick="editNote(${note.id})">Edit</button>
+                            <button class="btn-delete" onclick="deleteNote(${note.id})">Delete</button>
+                        </div>
+                    </div>
+                    <div class="note-content">${escapeHtml(note.content)}</div>
+                    <div class="note-timestamp">${note.timestamp}</div>
+                </div>
+            `).join('');
+        }
+
+        async function createNote() {
+            const title = document.getElementById('newTitle').value.trim();
+            const content = document.getElementById('newContent').value.trim();
+
+            if (!title && !content) {
+                alert('Please enter a title or content');
+                return;
+            }
+
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        title: title || 'Untitled',
+                        content: content 
+                    })
+                });
+
+                document.getElementById('newTitle').value = '';
+                document.getElementById('newContent').value = '';
+                loadNotes();
+            } catch (error) {
+                console.error('Error creating note:', error);
+            }
+        }
+
+        function editNote(id) {
+            const noteCard = document.getElementById(`note-${id}`);
+            const title = noteCard.querySelector('.note-title').textContent;
+            const content = noteCard.querySelector('.note-content').textContent;
+
+            noteCard.classList.add('edit-mode');
+            noteCard.innerHTML = `
+                <input type="text" id="editTitle-${id}" value="${escapeHtml(title)}">
+                <textarea id="editContent-${id}">${escapeHtml(content)}</textarea>
+                <div class="note-actions">
+                    <button class="btn-save" onclick="saveNote(${id})">Save</button>
+                    <button class="btn-cancel" onclick="loadNotes()">Cancel</button>
+                </div>
+            `;
+        }
+
+        async function saveNote(id) {
+            const title = document.getElementById(`editTitle-${id}`).value.trim();
+            const content = document.getElementById(`editContent-${id}`).value.trim();
+
+            try {
+                await fetch(`${API_URL}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
+                });
+                loadNotes();
+            } catch (error) {
+                console.error('Error updating note:', error);
+            }
+        }
+
+        async function deleteNote(id) {
+            if (!confirm('Are you sure you want to delete this note?')) return;
+
+            try {
+                await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                loadNotes();
+            } catch (error) {
+                console.error('Error deleting note:', error);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        loadNotes();
+    </script>
+</body>
+</html>
